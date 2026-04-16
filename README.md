@@ -105,10 +105,3 @@ If you want implementation-level detail, start from the architecture map and the
 ```bash
 npx wrangler dev
 ```
-
-## Why this README is personal
-
-This isn't meant to be a generic software readme.  
-It's a compact profile of how I work: **creative direction + production discipline + systems engineering** in one operating model.
-
-If you want to collaborate on film, cross-media storytelling, cultural infrastructure, or practical web/infra execution, reach out.
