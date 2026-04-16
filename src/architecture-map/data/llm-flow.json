@@ -1,0 +1,221 @@
+{
+  "metadata": {
+    "title": "Ubuntu Shell LLM Call Sequence",
+    "lastVerifiedCommit": "8839586",
+    "verifiedOnUtc": "2026-04-15T16:10:00Z"
+  },
+  "promptInspector": {
+    "systemPromptSections": [
+      "Role constraint: deterministic kernel adapter, not chat assistant.",
+      "Current state injection: cwd, vfs snapshot, meta context, raw command, command token, argv.",
+      "Hard rules: strict JSON response, shell simulation behavior, tip/suggestions/mutations/ui_events constraints.",
+      "Explicit JSON shape contract for stdout/stderr/tip/suggestions/vfs_mutations/ui_events."
+    ],
+    "requestPayloadFields": [
+      { "name": "command", "purpose": "Raw command line from input", "required": true },
+      { "name": "command_token", "purpose": "First token command key", "required": true },
+      { "name": "argv", "purpose": "Argument vector", "required": true },
+      { "name": "args_text", "purpose": "Joined args string", "required": true },
+      { "name": "cwd", "purpose": "Current directory context", "required": true },
+      { "name": "vfs_snapshot", "purpose": "Current directory virtual FS snapshot", "required": true },
+      { "name": "session_id", "purpose": "Per-session identity for limits and trace", "required": true },
+      { "name": "turnstile_token", "purpose": "Bot/abuse proof token", "required": true }
+    ],
+    "responseContract": [
+      { "field": "stdout", "type": "string", "note": "Renderable terminal output" },
+      { "field": "stderr", "type": "string", "note": "Error stream and guard diagnostics" },
+      { "field": "tip", "type": "string", "note": "Short explanatory sentence" },
+      { "field": "suggestions", "type": "array", "note": "Only for command-not-found style errors" },
+      { "field": "vfs_mutations", "type": "array", "note": "Filesystem action intents" },
+      { "field": "ui_events", "type": "array", "note": "Explicit GUI/open events" }
+    ],
+    "guardrails": [
+      "Origin allowlist and CORS controls.",
+      "Strict request schema + key whitelist + payload caps.",
+      "Per-session/per-IP/global rate limits via Durable Object counters.",
+      "Turnstile verification with hostname allowlist.",
+      "Recognized executable gating before AI invocation.",
+      "Response sanitization and hard caps for text, mutations, UI events, and suggestions.",
+      "Client-side mutation and event guard before apply/dispatch."
+    ]
+  },
+  "steps": [
+    {
+      "id": "s01",
+      "stage": "client",
+      "label": "Command input captured",
+      "description": "User submits terminal text; shell splits tokens and normalizes command key.",
+      "input": "raw command line",
+      "output": "command_token + args",
+      "failureModes": ["empty command returns without processing"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2482, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s02",
+      "stage": "client",
+      "label": "Local command gate",
+      "description": "Local command set executes fast path; unknown commands branch to LLM flow.",
+      "input": "normalized command token",
+      "output": "local result OR LLM branch",
+      "failureModes": ["local command may return shell error output"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2494, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2501, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s03",
+      "stage": "client",
+      "label": "Turnstile token resolution",
+      "description": "Client polls Turnstile widget for single-use token before making request.",
+      "input": "widget context",
+      "output": "turnstile_token",
+      "failureModes": ["token timeout or widget lifecycle error"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 560, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s04",
+      "stage": "client",
+      "label": "POST /worker/ payload composition",
+      "description": "Client sends command, tokenized fields, cwd, and vfs snapshot to worker endpoint.",
+      "input": "command context + turnstile token + session id",
+      "output": "worker HTTP request",
+      "failureModes": ["security token unavailable", "network failure"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 600, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2008, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s05",
+      "stage": "worker",
+      "label": "Request schema + origin validation",
+      "description": "Worker parses raw body, validates payload contract and enforces origin policy.",
+      "input": "request body + headers",
+      "output": "validated payload",
+      "failureModes": ["invalid payload -> 400", "disallowed origin -> rejection"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1504, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1507, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s06",
+      "stage": "worker",
+      "label": "Rate-limit checks",
+      "description": "Worker enforces session/IP/global windows before expensive operations.",
+      "input": "validated payload + identity signals",
+      "output": "allow OR 429",
+      "failureModes": ["limit exceeded", "limiter subsystem failure"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1415, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1523, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s07",
+      "stage": "worker",
+      "label": "Turnstile verification",
+      "description": "Worker verifies token against Cloudflare endpoint and allowed hostnames.",
+      "input": "turnstile_token",
+      "output": "verified proof OR 403",
+      "failureModes": ["missing secret", "invalid token", "hostname mismatch"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1285, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1567, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s08",
+      "stage": "worker",
+      "label": "Recognized command gate",
+      "description": "Unknown command tokens short-circuit to deterministic not-found response.",
+      "input": "command_token",
+      "output": "not-found response OR continue",
+      "failureModes": ["none; safe fallback branch"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1584, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s09",
+      "stage": "worker",
+      "label": "System prompt assembly",
+      "description": "Worker assembles deterministic shell adapter prompt with strict JSON and rules.",
+      "input": "payload context fields",
+      "output": "systemPrompt string",
+      "failureModes": ["none; deterministic construction"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1617, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s10",
+      "stage": "worker",
+      "label": "Workers AI call",
+      "description": "Worker executes env.AI.run with system + user messages and no streaming.",
+      "input": "messages[]",
+      "output": "raw model response candidate",
+      "failureModes": ["missing AI binding", "upstream model/runtime error"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1652, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s11",
+      "stage": "worker",
+      "label": "Response normalization",
+      "description": "Worker extracts candidate payload and normalizes to shell response object.",
+      "input": "model candidate",
+      "output": "normalized shell object",
+      "failureModes": ["non-JSON model output becomes guarded kernel panic stderr"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 920, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1668, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s12",
+      "stage": "worker",
+      "label": "Response caps + sanitization",
+      "description": "Worker enforces max sizes and allowed actions for stdout/stderr/tip/mutations/events/suggestions.",
+      "input": "normalized response",
+      "output": "safe constrained payload",
+      "failureModes": ["unsafe entries dropped", "oversized fields truncated"],
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1209, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1682, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s13",
+      "stage": "client",
+      "label": "Client parse + mutation guard/apply",
+      "description": "Client parses response, renders output, sanitizes mutations, then applies overlay VFS changes.",
+      "input": "worker JSON response",
+      "output": "terminal output + overlay fs updates",
+      "failureModes": ["invalid mutation dropped or apply failure surfaced"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2016, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2046, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "s14",
+      "stage": "client",
+      "label": "UI events execution",
+      "description": "Client dispatches LLM UI events (open path/app) through guarded event handlers.",
+      "input": "ui_events[]",
+      "output": "GUI action side-effects",
+      "failureModes": ["unsupported event type ignored"],
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 1975, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2072, "confidence": "exact" }
+      ]
+    }
+  ]
+}

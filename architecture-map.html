@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MatijaR Runtime - Architecture + LLM Logic Map</title>
+    <link rel="stylesheet" href="./src/architecture-map/map.css" />
+  </head>
+  <body>
+    <main class="map-app">
+      <header class="hero shell">
+        <div>
+          <p class="kicker">Static Architecture Lab</p>
+          <h1>Portfolio Runtime: Architecture + LLM Logic Map</h1>
+          <p class="subtitle">
+            Visual index of module boundaries, data movement, prompt structure, and safety gates.
+          </p>
+        </div>
+        <dl class="legend" aria-label="source confidence legend">
+          <div>
+            <dt><span class="badge badge--exact">exact</span></dt>
+            <dd>directly anchored to current source line</dd>
+          </div>
+          <div>
+            <dt><span class="badge badge--inferred">inferred</span></dt>
+            <dd>derived from nearby execution context</dd>
+          </div>
+        </dl>
+      </header>
+
+      <section class="controls shell" aria-label="view controls">
+        <div class="tabs">
+          <button type="button" class="tab tab--active" data-view="topology">Topology View</button>
+          <button type="button" class="tab" data-view="sequence">LLM Sequence View</button>
+        </div>
+        <div class="controls-right">
+          <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch theme mode">
+            Theme: Auto
+          </button>
+          <div class="counts" data-counts></div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <article class="canvas" data-canvas></article>
+        <aside class="inspector" data-inspector>
+          <h2>Inspector</h2>
+          <p class="muted">Select a node, edge, or step to inspect details and source anchors.</p>
+        </aside>
+      </section>
+    </main>
+
+    <div class="code-popup-backdrop" data-code-popup hidden>
+      <section class="code-popup" role="dialog" aria-modal="true" aria-labelledby="code-popup-title">
+        <header class="code-popup-head">
+          <h2 id="code-popup-title" data-popup-title>Source snippet</h2>
+          <button type="button" class="code-popup-close" data-popup-close aria-label="Close popup">Close</button>
+        </header>
+        <pre class="code-popup-body" data-popup-body></pre>
+      </section>
+    </div>
+
+    <script type="module" src="./src/architecture-map/map.js"></script>
+  </body>
+</html>

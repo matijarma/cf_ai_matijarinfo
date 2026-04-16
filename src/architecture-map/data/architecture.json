@@ -1,0 +1,246 @@
+{
+  "metadata": {
+    "title": "MatijaR Runtime - System Topology",
+    "lastVerifiedCommit": "8839586",
+    "verifiedOnUtc": "2026-04-15T16:10:00Z"
+  },
+  "groups": [
+    { "id": "boot", "label": "Boot + Host Selection" },
+    { "id": "client", "label": "Client Ubuntu Shell Runtime" },
+    { "id": "worker", "label": "Worker Guardrail + LLM Pipeline" },
+    { "id": "apply", "label": "Client Mutation + UI Application" }
+  ],
+  "nodes": [
+    {
+      "id": "host-bootstrap",
+      "group": "boot",
+      "label": "Runtime Host Bootstrap",
+      "summary": "Main entry mounts simulated host and chooses desktop/mobile runtime.",
+      "details": "Entry wiring sets root mount, strips legacy query params, creates registry and host, then mounts initial system.",
+      "sourceRefs": [
+        { "file": "src/main.js", "line": 46, "confidence": "exact" },
+        { "file": "src/main.js", "line": 72, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "cmd-gate",
+      "group": "client",
+      "label": "Command Tokenization + Local Fast-Path Gate",
+      "summary": "Shell tokenizes command and routes local commands without worker call.",
+      "details": "Unknown commands branch into LLM processing path; local commands execute in-shell.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2482, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2494, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "request-build",
+      "group": "client",
+      "label": "LLM Request Builder + Turnstile Token",
+      "summary": "Client resolves Turnstile token and POSTs structured shell payload to /worker/.",
+      "details": "Payload includes command fields, cwd, vfs snapshot, and security/session attributes.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 560, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 600, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2008, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "request-guards",
+      "group": "worker",
+      "label": "Worker Request Guards",
+      "summary": "Worker validates body shape, origin policy, and rate limits.",
+      "details": "Before LLM invocation the request passes parse/validate and multi-window rate-limiter checks.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1504, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1523, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1415, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "turnstile-verify",
+      "group": "worker",
+      "label": "Turnstile Verification",
+      "summary": "Worker verifies Turnstile token and allowed hostname before continuing.",
+      "details": "Failure path returns a guarded shell error with 403.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1285, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1567, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "recognized-gate",
+      "group": "worker",
+      "label": "Recognized Executable Gate",
+      "summary": "Unknown tokens short-circuit to deterministic command-not-found response.",
+      "details": "This prevents unnecessary LLM calls for unsupported command tokens.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1584, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 74, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "prompt-ai",
+      "group": "worker",
+      "label": "System Prompt Assembly + Workers AI Call",
+      "summary": "Worker constructs deterministic shell prompt and calls env.AI.run.",
+      "details": "System message defines strict JSON-only shell adapter behavior and output schema.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1617, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1652, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "normalize-sanitize",
+      "group": "worker",
+      "label": "Normalize + Enforce Response Limits",
+      "summary": "Model output is parsed/normalized then sanitized under strict caps.",
+      "details": "Unsafe mutations/events/suggestions are dropped or truncated before return.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 920, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1209, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1682, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "client-parse",
+      "group": "apply",
+      "label": "Client Parse + Output Rendering",
+      "summary": "Shell parses response, prints stdout/stderr, and shows suggestions.",
+      "details": "Response body is consumed before mutation/event processing.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2016, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2018, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2026, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "client-mutations",
+      "group": "apply",
+      "label": "Mutation Guard + Overlay Apply",
+      "summary": "Client sanitizes LLM mutations and applies allowed overlay filesystem changes.",
+      "details": "Dropped/truncated mutation diagnostics are surfaced in shell output.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 1800, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2046, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "client-events",
+      "group": "apply",
+      "label": "UI Event Dispatch",
+      "summary": "Client executes LLM UI events (open paths/apps) through guarded handlers.",
+      "details": "Open commands are executed via app launch or path open dispatch.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 1975, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2072, "confidence": "exact" }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "host-bootstrap",
+      "to": "cmd-gate",
+      "label": "Ubuntu profile active",
+      "details": "Desktop host mounts Ubuntu shell profile; command loop starts.",
+      "sourceRefs": [
+        { "file": "src/main.js", "line": 59, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2482, "confidence": "inferred" }
+      ]
+    },
+    {
+      "id": "e2",
+      "from": "cmd-gate",
+      "to": "request-build",
+      "label": "unknown command",
+      "details": "Non-local command branches to processViaLLM.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2501, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e3",
+      "from": "request-build",
+      "to": "request-guards",
+      "label": "POST /worker/",
+      "details": "Client sends command context with token and session id.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 608, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1504, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e4",
+      "from": "request-guards",
+      "to": "turnstile-verify",
+      "label": "valid payload + limits",
+      "details": "Only valid requests proceed to cryptographic proof verification.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1567, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e5",
+      "from": "turnstile-verify",
+      "to": "recognized-gate",
+      "label": "proof accepted",
+      "details": "Known executable check decides whether to call LLM.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1584, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e6",
+      "from": "recognized-gate",
+      "to": "prompt-ai",
+      "label": "recognized token",
+      "details": "Recognized commands continue into LLM prompt + model run.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1617, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e7",
+      "from": "prompt-ai",
+      "to": "normalize-sanitize",
+      "label": "model candidate",
+      "details": "Model output is normalized then constrained under worker response limits.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1668, "confidence": "exact" },
+        { "file": "worker/worker.js", "line": 1682, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e8",
+      "from": "normalize-sanitize",
+      "to": "client-parse",
+      "label": "JSON shell payload",
+      "details": "Final sanitized payload returned to client terminal.",
+      "sourceRefs": [
+        { "file": "worker/worker.js", "line": 1730, "confidence": "exact" },
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2016, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e9",
+      "from": "client-parse",
+      "to": "client-mutations",
+      "label": "vfs_mutations[]",
+      "details": "Mutations pass through client-side guard and overlay filesystem apply.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2046, "confidence": "exact" }
+      ]
+    },
+    {
+      "id": "e10",
+      "from": "client-parse",
+      "to": "client-events",
+      "label": "ui_events[]",
+      "details": "UI events are executed asynchronously after render/mutation processing.",
+      "sourceRefs": [
+        { "file": "src/desktop-shell/ubuntu-server-shell.js", "line": 2072, "confidence": "exact" }
+      ]
+    }
+  ]
+}
