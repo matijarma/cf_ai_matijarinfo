@@ -4,7 +4,7 @@
 > 
 > This repository is both my professional story and a technical playground for how I build things.
 
-- **cf_ai_matijar.info** The LLM-powered Ubuntu shell was directly inspired by the Cloudflare summer internship bonus task "Cloudflare AI app assignment". 
+### **cf_ai_matijar.info** The LLM-powered Ubuntu shell was directly inspired by the Cloudflare summer internship bonus task "Cloudflare AI app assignment". 
 - **site and app are in development** Most likely at time of viewing the app holds little-to-none actual content. Given a lifetime of theatre, film, culture and software projects, its actually a much bigger task to properly fill and wire the content, and build the UX for consuming it, than developing the app logic. Because time is running out, I'm publishing this in-dev version.
 - **LLM integration** is only available in the Ubuntu shell. if you reboot into one of the Windows distros you can reboot into Ubuntu by clearing your website data or by changing the default boot OS in msconfig (start-run-msconfig)
 - **Architecture map** To review prompts and the LLM architecture you can review [this static page](https://dev.matijar.info/architecture-map) 
