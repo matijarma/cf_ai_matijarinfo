@@ -13,7 +13,7 @@
 - **Core idea**
 > - Seeing the Cloudflare summer internship bonus task to build an app with Cloudflare LLM services, it arrived perfectly as the roundup to a few years old desire to build my portfolio site around a mockup OS
 > - Besides a fun way to browse my CV and projects of all sorts, I believe it could be highly educational, especially in Linux shell where users can have the freedom and guidence to experiment with commands and understand what they do.
->> - Already existing implementation of BIOS, base Linux commands, msconfig, Task manager and other such details were baked in early on exactly for the purpose of having a educational purpose for the users foundationally. 
+>>  Already existing implementation of BIOS, base Linux commands, msconfig, Task manager and other such details were baked in early on exactly for the purpose of having a educational purpose for the users foundationally. 
 
 - **Architecture map** 
 > Prompts and LLM architecture: [this static page](https://dev.matijar.info/architecture-map) 
